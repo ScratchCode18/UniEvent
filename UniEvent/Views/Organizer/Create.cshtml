@@ -1,0 +1,66 @@
+﻿@model UniEvent.ViewModels.EventFormViewModel
+
+@{
+    ViewData["Title"] = "Create Event";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <h2 class="fw-bold mb-2">Create New Event</h2>
+                    <p class="text-muted">
+                        Submit your event for administrator approval.
+                    </p>
+
+                    <form asp-action="Create" method="post">
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label">Event Title</label>
+                            <input asp-for="Title" class="form-control" />
+                            <span asp-validation-for="Title" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Description" class="form-label"></label>
+                            <textarea asp-for="Description" class="form-control"
+                                      rows="4"></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Date" class="form-label">Date and Time</label>
+                            <input asp-for="Date" type="datetime-local"
+                                   asp-format="{0:yyyy-MM-ddTHH:mm}"
+                                   class="form-control" />
+                            <span asp-validation-for="Date" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Venue" class="form-label"></label>
+                            <input asp-for="Venue" class="form-control" />
+                            <span asp-validation-for="Venue" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Category" class="form-label"></label>
+                            <input asp-for="Category" class="form-control"
+                                   placeholder="e.g. Technology, Sports, Career" />
+                            <span asp-validation-for="Category" class="text-danger"></span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Submit Event</button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

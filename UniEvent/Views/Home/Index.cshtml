@@ -1,8 +1,85 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model UniEvent.ViewModels.HomeViewModel
+
+@{
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="hero text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold">Welcome to UniEvent</h1>
+
+        <p class="lead mt-3">
+            Discover, organize, and participate in
+            exciting university events.
+        </p>
+
+        <a href="#events" class="btn btn-light btn-lg mt-3">
+            Explore Events
+        </a>
+    </div>
+</section>
+
+<section id="events" class="container py-5">
+    <h2 class="text-center mb-4">Upcoming Events</h2>
+
+    @if (Model.UpcomingEvents.Any())
+    {
+        <div class="row g-4">
+            @foreach (var eventItem in Model.UpcomingEvents)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card event-card h-100 shadow-sm">
+                        <div class="card-body d-flex flex-column">
+                            @if (!string.IsNullOrWhiteSpace(eventItem.Category))
+                            {
+                                <span class="badge bg-primary align-self-start mb-2">
+                                    @eventItem.Category
+                                </span>
+                            }
+
+                            <h5 class="card-title fw-bold">
+                                @eventItem.Title
+                            </h5>
+
+                            <p class="card-text">
+                                @eventItem.Description
+                            </p>
+
+                            <div class="event-details mt-auto">
+                                <p class="mb-1">
+                                    <strong>Date:</strong>
+                                    @eventItem.Date.ToString("dd MMM yyyy")
+                                </p>
+
+                                <p class="mb-3">
+                                    <strong>Time:</strong>
+                                    @eventItem.Date.ToString("hh:mm tt")
+                                </p>
+
+                                <p class="mb-3">
+                                    <strong>Venue:</strong>
+                                    @eventItem.Venue
+                                </p>
+                            </div>
+
+                            <a asp-controller="Account"
+                               asp-action="Login"
+                               class="btn btn-primary mt-auto">
+                                Login to Register
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5">
+            <h5>No upcoming events right now</h5>
+            <p class="text-muted">
+                Approved university events will appear here when available.
+            </p>
+        </div>
+    }
+</section>

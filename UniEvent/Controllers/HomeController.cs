@@ -1,14 +1,34 @@
-using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using UniEvent.Data;
 using UniEvent.Models;
+using UniEvent.ViewModels;
 
 namespace UniEvent.Controllers;
 
 public class HomeController : Controller
 {
-    public IActionResult Index()
+    private readonly ApplicationDbContext _context;
+
+    public HomeController(ApplicationDbContext context)
     {
-        return View();
+        _context = context;
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        var upcomingEvents = await _context.Events
+            .AsNoTracking()
+            .Where(e => e.Status == EventStatus.Approved && e.Date >= DateTime.Now)
+            .OrderBy(e => e.Date)
+            .ToListAsync();
+
+        var viewModel = new HomeViewModel
+        {
+            UpcomingEvents = upcomingEvents
+        };
+
+        return View(viewModel);
     }
 
     public IActionResult Privacy()
@@ -19,6 +39,6 @@ public class HomeController : Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        return View();
     }
 }

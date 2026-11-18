@@ -1,0 +1,151 @@
+﻿@model UniEvent.ViewModels.StudentDashboardViewModel
+
+@{
+    ViewData["Title"] = "Student Dashboard";
+}
+
+<div class="container py-5">
+    <div class="mb-4">
+        <h2 class="fw-bold">Student Dashboard</h2>
+        <p class="text-muted">Discover university events and manage your registrations.</p>
+    </div>
+
+    <div class="row g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Available Events</h6>
+                    <h2 class="fw-bold text-primary">@Model.AvailableEventsCount</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Registered Events</h6>
+                    <h2 class="fw-bold text-primary">@Model.RegisteredEventsCount</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Upcoming Registrations</h6>
+                    <h2 class="fw-bold text-primary">@Model.UpcomingRegistrationsCount</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="mb-5">
+        <h3 class="mb-4">Available Events</h3>
+
+        @if (Model.AvailableEvents.Any())
+        {
+            <div class="row g-4">
+                @foreach (var eventItem in Model.AvailableEvents)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card event-card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
+                                @if (!string.IsNullOrWhiteSpace(eventItem.Category))
+                                {
+                                    <span class="badge bg-primary align-self-start mb-2">
+                                        @eventItem.Category
+                                    </span>
+                                }
+
+                                <h5 class="card-title fw-bold">@eventItem.Title</h5>
+                                <p class="card-text">@eventItem.Description</p>
+
+                                <div class="mt-auto">
+                                    <p class="mb-1">
+                                        <strong>Date:</strong>
+                                        @eventItem.Date.ToString("dd MMM yyyy")
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>Time:</strong>
+                                        @eventItem.Date.ToString("hh:mm tt")
+                                    </p>
+                                    <p class="mb-3">
+                                        <strong>Venue:</strong>
+                                        @eventItem.Venue
+                                    </p>
+
+                                    @if (Model.RegisteredEventIds.Contains(eventItem.Id))
+                                    {
+                                        <button class="btn btn-secondary w-100" disabled>
+                                            Already Registered
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="Register" method="post">
+                                            <input type="hidden" name="eventId" value="@eventItem.Id" />
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                Register Now
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">There are no upcoming approved events available right now.</p>
+        }
+    </section>
+
+    <section>
+        <h3 class="mb-4">My Events</h3>
+
+        @if (Model.MyRegistrations.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover bg-white">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Venue</th>
+                            <th>Registration Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var registration in Model.MyRegistrations)
+                        {
+                            <tr>
+                                <td>@registration.Event?.Title</td>
+                                <td>@registration.Event?.Date.ToString("dd MMM yyyy")</td>
+                                <td>@registration.Event?.Venue</td>
+                                <td>@registration.RegistrationDate.ToLocalTime().ToString("dd MMM yyyy")</td>
+                                <td>
+                                    @if (registration.Event?.Status == EventStatus.Approved &&
+                                         registration.Event.Date >= DateTime.Now)
+                                    {
+                                        <span class="badge bg-success">Upcoming</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Past / Unavailable</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">You haven't registered for any events yet.</p>
+        }
+    </section>
+</div>
