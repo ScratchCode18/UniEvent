@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using UniEvent.Data;
 using UniEvent.Models;
+using UniEvent.Repositories.Interfaces;
 using UniEvent.ViewModels;
 
 namespace UniEvent.Controllers;
@@ -11,27 +11,28 @@ namespace UniEvent.Controllers;
 [Authorize(Roles = "Organizer")]
 public class OrganizerController : Controller
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IEventRepository _eventRepository;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IEventRegistrationRepository _registrationRepository;
 
     public OrganizerController(
-        ApplicationDbContext context,
+        IEventRepository eventRepository,
+        IEventRegistrationRepository registrationRepository,
         UserManager<ApplicationUser> userManager)
     {
-        _context = context;
+        _eventRepository = eventRepository;
+        _registrationRepository = registrationRepository;
         _userManager = userManager;
     }
 
     public async Task<IActionResult> Index()
     {
         var organizer = await _userManager.GetUserAsync(User);
-        if (organizer == null || !organizer.IsActive) return Forbid();
 
-        var events = await _context.Events
-            .AsNoTracking()
-            .Where(e => e.OrganizerId == organizer.Id)
-            .OrderByDescending(e => e.CreatedAt)
-            .ToListAsync();
+        if (organizer == null || !organizer.IsActive)
+            return Forbid();
+
+        var events = await _eventRepository.GetByOrganizerAsync(organizer.Id);
 
         var model = new OrganizerDashboardViewModel
         {
@@ -58,10 +59,13 @@ public class OrganizerController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(EventFormViewModel model)
     {
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid)
+            return View(model);
 
         var organizer = await _userManager.GetUserAsync(User);
-        if (organizer == null || !organizer.IsActive) return Forbid();
+
+        if (organizer == null || !organizer.IsActive)
+            return Forbid();
 
         var newEvent = new Event
         {
@@ -75,10 +79,11 @@ public class OrganizerController : Controller
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Events.Add(newEvent);
-        await _context.SaveChangesAsync();
+        await _eventRepository.AddAsync(newEvent);
 
-        TempData["SuccessMessage"] = "Your event has been submitted for admin approval.";
+        TempData["SuccessMessage"] =
+            "Your event has been submitted for admin approval.";
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -86,12 +91,15 @@ public class OrganizerController : Controller
     public async Task<IActionResult> Edit(int id)
     {
         var organizer = await _userManager.GetUserAsync(User);
-        if (organizer == null || !organizer.IsActive) return Forbid();
 
-        var eventItem = await _context.Events
-            .FirstOrDefaultAsync(e => e.Id == id && e.OrganizerId == organizer.Id);
+        if (organizer == null || !organizer.IsActive)
+            return Forbid();
 
-        if (eventItem == null) return NotFound();
+        var eventItem = await _eventRepository
+            .GetByIdForOrganizerAsync(id, organizer.Id);
+
+        if (eventItem == null)
+            return NotFound();
 
         var model = new EventFormViewModel
         {
@@ -109,15 +117,19 @@ public class OrganizerController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, EventFormViewModel model)
     {
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid)
+            return View(model);
 
         var organizer = await _userManager.GetUserAsync(User);
-        if (organizer == null || !organizer.IsActive) return Forbid();
 
-        var eventItem = await _context.Events
-            .FirstOrDefaultAsync(e => e.Id == id && e.OrganizerId == organizer.Id);
+        if (organizer == null || !organizer.IsActive)
+            return Forbid();
 
-        if (eventItem == null) return NotFound();
+        var eventItem = await _eventRepository
+            .GetByIdForOrganizerAsync(id, organizer.Id);
+
+        if (eventItem == null)
+            return NotFound();
 
         eventItem.Title = model.Title.Trim();
         eventItem.Description = model.Description.Trim();
@@ -125,9 +137,10 @@ public class OrganizerController : Controller
         eventItem.Venue = model.Venue.Trim();
         eventItem.Category = model.Category?.Trim();
 
-        await _context.SaveChangesAsync();
+        await _eventRepository.UpdateAsync(eventItem);
 
         TempData["SuccessMessage"] = "Event updated successfully.";
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -136,26 +149,31 @@ public class OrganizerController : Controller
     public async Task<IActionResult> Delete(int id)
     {
         var organizer = await _userManager.GetUserAsync(User);
-        if (organizer == null || !organizer.IsActive) return Forbid();
 
-        var eventItem = await _context.Events
-            .FirstOrDefaultAsync(e => e.Id == id && e.OrganizerId == organizer.Id);
+        if (organizer == null || !organizer.IsActive)
+            return Forbid();
 
-        if (eventItem == null) return NotFound();
+        var eventItem = await _eventRepository
+            .GetByIdForOrganizerAsync(id, organizer.Id);
 
-        var hasRegistrations = await _context.EventRegistrations
-            .AnyAsync(r => r.EventId == id);
+        if (eventItem == null)
+            return NotFound();
+
+        var hasRegistrations =
+            await _registrationRepository.HasRegistrationsAsync(id);
 
         if (hasRegistrations)
         {
-            TempData["ErrorMessage"] = "This event has registrations and cannot be deleted.";
+            TempData["ErrorMessage"] =
+                "This event has registrations and cannot be deleted.";
+
             return RedirectToAction(nameof(Index));
         }
 
-        _context.Events.Remove(eventItem);
-        await _context.SaveChangesAsync();
+        await _eventRepository.DeleteAsync(eventItem);
 
         TempData["SuccessMessage"] = "Event deleted successfully.";
+
         return RedirectToAction(nameof(Index));
     }
 }

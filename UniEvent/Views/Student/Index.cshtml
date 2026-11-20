@@ -5,6 +5,7 @@
 }
 
 <div class="container py-5">
+    <div id="registrationMessage" class="mb-3" style="display: none;"></div>
     <div class="mb-4">
         <h2 class="fw-bold">Student Dashboard</h2>
         <p class="text-muted">Discover university events and manage your registrations.</p>
@@ -82,8 +83,10 @@
                                     }
                                     else
                                     {
-                                        <form asp-action="Register" method="post">
+                                        <form asp-action="Register" method="post" class="register-form">
+                                            @Html.AntiForgeryToken()
                                             <input type="hidden" name="eventId" value="@eventItem.Id" />
+
                                             <button type="submit" class="btn btn-primary w-100">
                                                 Register Now
                                             </button>
@@ -149,3 +152,52 @@
         }
     </section>
 </div>
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+
+            $(".register-form").on("submit", function (e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const button = form.find("button[type='submit']");
+
+                button.prop("disabled", true).text("Registering...");
+
+                $.post(form.attr("action"), form.serialize())
+                    .done(function (response) {
+
+                        const messageBox = $("#registrationMessage");
+
+                        messageBox
+                            .removeClass("alert-success alert-danger")
+                            .addClass(response.success ? "alert alert-success" : "alert alert-danger")
+                            .text(response.message)
+                            .show();
+
+                        if (response.success) {
+                            button
+                                .removeClass("btn-primary")
+                                .addClass("btn-secondary")
+                                .text("Already Registered");
+
+                            // Prevent another submission from this form.
+                            form.replaceWith(button);
+                        } else {
+                            button.prop("disabled", false).text("Register Now");
+                        }
+                    })
+                    .fail(function () {
+                        $("#registrationMessage")
+                            .removeClass("alert-success")
+                            .addClass("alert alert-danger")
+                            .text("Something went wrong. Please try again.")
+                            .show();
+
+                        button.prop("disabled", false).text("Register Now");
+                    });
+            });
+
+        });
+    </script>
+}

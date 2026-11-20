@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using UniEvent.Repositories;
+using UniEvent.Repositories.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using UniEvent.Data;
 using UniEvent.Models;
@@ -34,6 +36,10 @@ builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 {
     options.ValidationInterval = TimeSpan.Zero;
 });
+// Repository Pattern - Dependency Injection
+builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IEventRegistrationRepository, EventRegistrationRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();

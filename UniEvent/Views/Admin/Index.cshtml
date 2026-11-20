@@ -50,7 +50,7 @@
             </div>
         </div>
     </div>
-
+    <div id="ajaxMessage" class="mb-3" style="display: none;"></div>
     <h4 class="mb-3">Events Awaiting Approval</h4>
 
     @if (Model.PendingEventList.Any())
@@ -79,15 +79,21 @@
                             <td>
                                 <div class="d-flex gap-2">
 
-                                    <form asp-action="ApproveEvent" method="post">
+                                    <form asp-action="ApproveEvent" method="post" class="event-status-form">
+                                        @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@item.Id" />
+                                        <input type="hidden" name="decision" value="approve" />
+
                                         <button type="submit" class="btn btn-success btn-sm">
                                             Approve
                                         </button>
                                     </form>
 
-                                    <form asp-action="RejectEvent" method="post">
+                                    <form asp-action="RejectEvent" method="post" class="event-status-form">
+                                        @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@item.Id" />
+                                        <input type="hidden" name="decision" value="reject" />
+
                                         <button type="submit" class="btn btn-danger btn-sm">
                                             Reject
                                         </button>
@@ -108,3 +114,69 @@
         </div>
     }
 </div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+
+            $(".event-status-form").on("submit", function (e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const button = form.find("button[type='submit']");
+                const row = form.closest("tr");
+                const actionUrl = form.attr("action");
+
+                button.prop("disabled", true).text("Processing...");
+
+                $.ajax({
+                    url: actionUrl,
+                    type: "POST",
+                    data: form.serialize(),
+
+                    success: function (response) {
+
+                        if (response.success) {
+                            row.fadeOut(300, function () {
+                                $(this).remove();
+
+                                if ($("tbody tr").length === 0) {
+                                    $(".table-responsive").replaceWith(
+                                        '<div class="alert alert-info">There are no pending events.</div>'
+                                    );
+                                }
+                            });
+
+                            $("#ajaxMessage")
+                                .removeClass("alert-danger")
+                                .addClass("alert alert-success")
+                                .text(response.message)
+                                .show();
+                        } else {
+                            button.prop("disabled", false)
+                                .text(actionUrl.includes("Approve") ? "Approve" : "Reject");
+
+                            $("#ajaxMessage")
+                                .removeClass("alert-success")
+                                .addClass("alert alert-danger")
+                                .text(response.message)
+                                .show();
+                        }
+                    },
+
+                    error: function () {
+                        button.prop("disabled", false)
+                            .text(actionUrl.includes("Approve") ? "Approve" : "Reject");
+
+                        $("#ajaxMessage")
+                            .removeClass("alert-success")
+                            .addClass("alert alert-danger")
+                            .text("Something went wrong. Please try again.")
+                            .show();
+                    }
+                });
+            });
+
+        });
+    </script>
+}

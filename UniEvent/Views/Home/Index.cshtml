@@ -1,4 +1,5 @@
-﻿@model UniEvent.ViewModels.HomeViewModel
+﻿
+@model UniEvent.ViewModels.HomeViewModel
 
 @{
     ViewData["Title"] = "Home";
@@ -20,66 +21,98 @@
 </section>
 
 <section id="events" class="container py-5">
-    <h2 class="text-center mb-4">Upcoming Events</h2>
 
-    @if (Model.UpcomingEvents.Any())
-    {
-        <div class="row g-4">
-            @foreach (var eventItem in Model.UpcomingEvents)
-            {
-                <div class="col-md-6 col-lg-4">
-                    <div class="card event-card h-100 shadow-sm">
-                        <div class="card-body d-flex flex-column">
-                            @if (!string.IsNullOrWhiteSpace(eventItem.Category))
-                            {
-                                <span class="badge bg-primary align-self-start mb-2">
-                                    @eventItem.Category
-                                </span>
-                            }
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Upcoming Events</h2>
 
-                            <h5 class="card-title fw-bold">
-                                @eventItem.Title
-                            </h5>
+        <div>
+            <label for="categoryFilter" class="form-label mb-1">
+                Filter by Category
+            </label>
 
-                            <p class="card-text">
-                                @eventItem.Description
-                            </p>
+            <select id="categoryFilter" class="form-select">
+                <option value="all">All Categories</option>
 
-                            <div class="event-details mt-auto">
-                                <p class="mb-1">
-                                    <strong>Date:</strong>
-                                    @eventItem.Date.ToString("dd MMM yyyy")
-                                </p>
-
-                                <p class="mb-3">
-                                    <strong>Time:</strong>
-                                    @eventItem.Date.ToString("hh:mm tt")
-                                </p>
-
-                                <p class="mb-3">
-                                    <strong>Venue:</strong>
-                                    @eventItem.Venue
-                                </p>
-                            </div>
-
-                            <a asp-controller="Account"
-                               asp-action="Login"
-                               class="btn btn-primary mt-auto">
-                                Login to Register
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            }
+                @foreach (var category in Model.UpcomingEvents
+                    .Where(e => !string.IsNullOrWhiteSpace(e.Category))
+                    .Select(e => e.Category!)
+                    .Distinct()
+                    .OrderBy(c => c))
+                {
+                    <option value="@category">@category</option>
+                }
+            </select>
         </div>
-    }
-    else
-    {
-        <div class="text-center py-5">
-            <h5>No upcoming events right now</h5>
-            <p class="text-muted">
-                Approved university events will appear here when available.
-            </p>
-        </div>
-    }
+    </div>
+
+    <!-- AJAX Search Input -->
+    <div class="mb-4">
+        <label for="eventSearch" class="form-label">
+            Search Events
+        </label>
+
+        <input type="text"
+               id="eventSearch"
+               class="form-control"
+               placeholder="Search by event name, category or description..." />
+    </div>
+
+    <!-- AJAX Results Container -->
+    <div class="row g-4" id="eventResults">
+        @await Html.PartialAsync("_EventCards", Model.UpcomingEvents)
+    </div>
+
 </section>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+
+            // Apply category filtering to currently displayed events
+            function applyCategoryFilter() {
+
+                const selectedCategory = $("#categoryFilter").val();
+
+                $(".event-item").each(function () {
+
+                    const eventCategory = $(this).data("category") || "";
+
+                    if (
+                        selectedCategory === "all" ||
+                        eventCategory === selectedCategory
+                    ) {
+                        $(this).show();
+                    }
+                    else {
+                        $(this).hide();
+                    }
+                });
+            }
+
+            // Dropdown Category Filter
+            $("#categoryFilter").on("change", function () {
+                applyCategoryFilter();
+            });
+
+            // AJAX GET - Live Event Search
+            $("#eventSearch").on("input", function () {
+
+                const searchTerm = $(this).val();
+
+                $.get(
+                    '@Url.Action("SearchEvents", "Home")',
+                    { searchTerm: searchTerm },
+                    function (data) {
+
+                        $("#eventResults").html(data);
+
+                        // Reapply category filter after AJAX update
+                        applyCategoryFilter();
+                    }
+                );
+
+            });
+
+        });
+    </script>
+}

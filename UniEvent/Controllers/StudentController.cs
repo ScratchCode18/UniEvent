@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using UniEvent.Data;
 using UniEvent.Models;
+using UniEvent.Repositories.Interfaces;
 using UniEvent.ViewModels;
 
 namespace UniEvent.Controllers;
@@ -11,14 +12,17 @@ namespace UniEvent.Controllers;
 [Authorize(Roles = "Student")]
 public class StudentController : Controller
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IEventRepository _eventRepository;
+    private readonly IEventRegistrationRepository _registrationRepository;
     private readonly UserManager<ApplicationUser> _userManager;
 
     public StudentController(
-        ApplicationDbContext context,
+        IEventRepository eventRepository,
+        IEventRegistrationRepository registrationRepository,
         UserManager<ApplicationUser> userManager)
     {
-        _context = context;
+        _eventRepository = eventRepository;
+        _registrationRepository = registrationRepository;
         _userManager = userManager;
     }
 
@@ -31,18 +35,11 @@ public class StudentController : Controller
 
         var now = DateTime.Now;
 
-        var availableEvents = await _context.Events
-            .AsNoTracking()
-            .Where(e => e.Status == EventStatus.Approved && e.Date >= now)
-            .OrderBy(e => e.Date)
-            .ToListAsync();
+        var availableEvents =
+            await _eventRepository.GetUpcomingApprovedAsync(now);
 
-        var registrations = await _context.EventRegistrations
-            .AsNoTracking()
-            .Include(r => r.Event)
-            .Where(r => r.StudentId == student.Id)
-            .OrderByDescending(r => r.RegistrationDate)
-            .ToListAsync();
+        var registrations =
+            await _registrationRepository.GetByStudentAsync(student.Id);
 
         var registeredEventIds = registrations
             .Select(r => r.EventId)
@@ -64,6 +61,7 @@ public class StudentController : Controller
         return View(viewModel);
     }
 
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(int eventId)
@@ -73,25 +71,29 @@ public class StudentController : Controller
         if (student == null || !student.IsActive)
             return Forbid();
 
-        var eventItem = await _context.Events
-            .FirstOrDefaultAsync(e =>
-                e.Id == eventId &&
-                e.Status == EventStatus.Approved &&
-                e.Date >= DateTime.Now);
+        var eventItem = await _eventRepository.GetByIdAsync(eventId);
 
-        if (eventItem == null)
+        if (eventItem == null ||
+            eventItem.Status != EventStatus.Approved ||
+            eventItem.Date < DateTime.Now)
         {
-            TempData["ErrorMessage"] = "This event is no longer available for registration.";
-            return RedirectToAction(nameof(Index));
+            return Json(new
+            {
+                success = false,
+                message = "This event is no longer available for registration."
+            });
         }
 
-        var alreadyRegistered = await _context.EventRegistrations
-            .AnyAsync(r => r.EventId == eventId && r.StudentId == student.Id);
+        var alreadyRegistered =
+            await _registrationRepository.ExistsAsync(eventId, student.Id);
 
         if (alreadyRegistered)
         {
-            TempData["ErrorMessage"] = "You are already registered for this event.";
-            return RedirectToAction(nameof(Index));
+            return Json(new
+            {
+                success = false,
+                message = "You are already registered for this event."
+            });
         }
 
         var registration = new EventRegistration
@@ -101,19 +103,23 @@ public class StudentController : Controller
             RegistrationDate = DateTime.UtcNow
         };
 
-        _context.EventRegistrations.Add(registration);
-
         try
         {
-            await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "You have successfully registered for the event.";
+            await _registrationRepository.AddAsync(registration);
+
+            return Json(new
+            {
+                success = true,
+                message = "You have successfully registered for the event."
+            });
         }
         catch (DbUpdateException)
         {
-            _context.Entry(registration).State = EntityState.Detached;
-            TempData["ErrorMessage"] = "Registration could not be completed. You may already be registered.";
+            return Json(new
+            {
+                success = false,
+                message = "Registration could not be completed. You may already be registered."
+            });
         }
-
-        return RedirectToAction(nameof(Index));
     }
 }

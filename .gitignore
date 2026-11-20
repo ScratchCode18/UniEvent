@@ -483,3 +483,8 @@ $RECYCLE.BIN/
 
 # Local AI handoff archive
 /Test.zip
+
+
+# Local IIS deployment configuration and archive
+/UniEvent/appsettings.Production.json
+/UniEventZip.zip

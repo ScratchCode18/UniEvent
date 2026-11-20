@@ -2,8 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using UniEvent.Data;
+using UniEvent.Repositories.Interfaces;
 using UniEvent.Models;
 using UniEvent.ViewModels;
 
@@ -12,104 +11,115 @@ namespace UniEvent.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminController : Controller
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IEventRepository _eventRepository;
+    private readonly IUserRepository _userRepository;
     private readonly UserManager<ApplicationUser> _userManager;
 
     public AdminController(
-        ApplicationDbContext context,
+        IEventRepository eventRepository,
+        IUserRepository userRepository,
         UserManager<ApplicationUser> userManager)
     {
-        _context = context;
+        _eventRepository = eventRepository;
+        _userRepository = userRepository;
         _userManager = userManager;
     }
-
     public async Task<IActionResult> Index()
     {
         var model = new AdminDashboardViewModel
         {
-            TotalUsers = await _userManager.Users.CountAsync(),
+            TotalUsers = await _userRepository.GetTotalCountAsync(),
 
-            TotalEvents = await _context.Events.CountAsync(),
+            TotalEvents = await _eventRepository.GetTotalCountAsync(),
 
-            PendingEvents = await _context.Events
-                .CountAsync(e => e.Status == EventStatus.Pending),
+            PendingEvents = await _eventRepository
+                .GetCountByStatusAsync(EventStatus.Pending),
 
-            ApprovedEvents = await _context.Events
-                .CountAsync(e => e.Status == EventStatus.Approved),
+            ApprovedEvents = await _eventRepository
+                .GetCountByStatusAsync(EventStatus.Approved),
 
-            RejectedEvents = await _context.Events
-                .CountAsync(e => e.Status == EventStatus.Rejected),
+            RejectedEvents = await _eventRepository
+                .GetCountByStatusAsync(EventStatus.Rejected),
 
-            PendingEventList = await _context.Events
-                .Include(e => e.Organizer)
-                .Where(e => e.Status == EventStatus.Pending)
-                .OrderBy(e => e.Date)
-                .ToListAsync()
+            PendingEventList = await _eventRepository
+                .GetPendingWithOrganizerAsync()
         };
 
         return View(model);
     }
-
 [HttpPost]
 [ValidateAntiForgeryToken]
 public async Task<IActionResult> ApproveEvent(int id)
 {
-    var eventItem = await _context.Events.FindAsync(id);
+    var eventItem = await _eventRepository.GetByIdAsync(id);
 
     if (eventItem == null)
     {
-        TempData["ErrorMessage"] = "Event not found.";
-        return RedirectToAction(nameof(Index));
+        return Json(new
+        {
+            success = false,
+            message = "Event not found."
+        });
     }
 
     if (eventItem.Status != EventStatus.Pending)
     {
-        TempData["ErrorMessage"] = "This event is no longer pending.";
-        return RedirectToAction(nameof(Index));
+        return Json(new
+        {
+            success = false,
+            message = "This event is no longer pending."
+        });
     }
 
     eventItem.Status = EventStatus.Approved;
 
-    await _context.SaveChangesAsync();
+    await _eventRepository.UpdateAsync(eventItem);
 
-    TempData["SuccessMessage"] = "Event approved successfully.";
-
-    return RedirectToAction(nameof(Index));
+    return Json(new
+    {
+        success = true,
+        message = "Event approved successfully."
+    });
 }
 
 [HttpPost]
 [ValidateAntiForgeryToken]
 public async Task<IActionResult> RejectEvent(int id)
 {
-    var eventItem = await _context.Events.FindAsync(id);
+    var eventItem = await _eventRepository.GetByIdAsync(id);
 
     if (eventItem == null)
     {
-        TempData["ErrorMessage"] = "Event not found.";
-        return RedirectToAction(nameof(Index));
+        return Json(new
+        {
+            success = false,
+            message = "Event not found."
+        });
     }
 
     if (eventItem.Status != EventStatus.Pending)
     {
-        TempData["ErrorMessage"] = "This event is no longer pending.";
-        return RedirectToAction(nameof(Index));
+        return Json(new
+        {
+            success = false,
+            message = "This event is no longer pending."
+        });
     }
 
     eventItem.Status = EventStatus.Rejected;
 
-    await _context.SaveChangesAsync();
+    await _eventRepository.UpdateAsync(eventItem);
 
-    TempData["SuccessMessage"] = "Event rejected successfully.";
-
-    return RedirectToAction(nameof(Index));
+    return Json(new
+    {
+        success = true,
+        message = "Event rejected successfully."
+    });
 }
-
 [HttpGet]
 public async Task<IActionResult> ManageUsers()
 {
-    var users = await _userManager.Users
-        .OrderBy(u => u.FullName)
-        .ToListAsync();
+    var users = await _userRepository.GetAllAsync();
 
     var model = new List<AdminUserViewModel>();
 
